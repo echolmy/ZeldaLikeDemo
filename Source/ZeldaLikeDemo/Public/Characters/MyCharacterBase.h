@@ -76,7 +76,7 @@ public:
 
 	/** Horizontal movement input value */
 	float Velocity_X;
-	
+
 	/** Vertical movement input value */
 	float Velocity_Y;
 
@@ -171,13 +171,13 @@ public:
 	 * Restores ground-based movement parameters.
 	 */
 	void ResetToWalk() const;
-	
+
 	/**
 	 * Configures character for sprinting movement.
 	 * Increases speed and begins stamina depletion.
 	 */
 	void SetSprint();
-	
+
 	/**
 	 * Configures character for walking movement.
 	 * Sets normal speed and begins stamina recovery.
@@ -198,26 +198,28 @@ public:
 	float CurrentStamina = 0.0f;
 
 	/** Maximum possible stamina value */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Stamina")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stamina")
 	float MaxStamina = 100.0f;
 
 	/** How frequently stamina updates (in seconds) */
-	UPROPERTY(EditAnywhere, Category="Stamina")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stamina")
 	float StaminaDepletionRate = 0.05f;
 
 	/** Amount of stamina depleted/recovered per update */
-	UPROPERTY(EditAnywhere, Category="Stamina")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stamina")
 	float StaminaDepletionAmount = 0.5f;
 
 	/** Timer handle for stamina depletion */
 	FTimerHandle DrainStaminaTimerHandle;
-	
+
+	void SetExhausted();
+
 	/**
 	 * Periodically reduces stamina during sprinting.
 	 * Transitions to exhausted state when stamina is depleted.
 	 */
 	void DrainStaminaTimer();
-	
+
 	/**
 	 * Begins the stamina depletion process.
 	 * Sets up the timer for regular stamina reduction and shows UI gauge.
@@ -226,13 +228,13 @@ public:
 
 	/** Timer handle for stamina recovery */
 	FTimerHandle RecoverStaminaTimerHandle;
-	
+
 	/**
 	 * Periodically increases stamina during walking.
 	 * Hides stamina UI when fully recovered.
 	 */
 	void RecoverStaminaTimer();
-	
+
 	/**
 	 * Begins the stamina recovery process.
 	 * Sets up timer for regular stamina increase.

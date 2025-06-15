@@ -178,7 +178,7 @@ void AMyCharacterBase::LocomotionManager(EMovementTypes NewMovement)
 		SetWalking();
 		break;
 	case EMovementTypes::MM_EXHAUSTED:
-		Debug::PrintInfo("Exhausted");
+		SetExhausted();
 		break;
 	case EMovementTypes::MM_SPRINTING:
 		SetSprint();
@@ -198,7 +198,6 @@ void AMyCharacterBase::ResetToWalk() const
 
 void AMyCharacterBase::SetSprint()
 {
-	Debug::PrintInfo("Sprinting");
 	GetCharacterMovement()->MaxWalkSpeed = 1500.0f;
 	GetCharacterMovement()->AirControl = 0.35f;
 
@@ -210,7 +209,6 @@ void AMyCharacterBase::SetSprint()
 
 void AMyCharacterBase::SetWalking()
 {
-	Debug::PrintInfo("Walking");
 	GetCharacterMovement()->MaxWalkSpeed = 500.0f;
 	GetCharacterMovement()->AirControl = 0.35f;
 
@@ -227,6 +225,25 @@ bool AMyCharacterBase::IsCharacterExhausted() const
 #pragma endregion Locomotion
 
 #pragma region Stamina
+void AMyCharacterBase::SetExhausted()
+{
+	GetCharacterMovement()->MaxWalkSpeed = 300.0f; // Slow walking
+	GetCharacterMovement()->AirControl = 0.35f;
+
+	ClearDrainRecoverStaminaTimer();
+
+	// Recover energy when on the ground
+	if (GetCharacterMovement()->MovementMode==MOVE_Walking)
+	{
+		StartRecoverStamina();
+	}
+	// If falling, start recovering energy until landing 
+	else if (GetCharacterMovement()->MovementMode==MOVE_Falling)
+	{
+		ResetToWalk();
+	}
+}
+
 void AMyCharacterBase::DrainStaminaTimer()
 {
 	if (CurrentStamina <= 0.0f)
@@ -257,7 +274,7 @@ void AMyCharacterBase::StartDrainStamina()
 
 void AMyCharacterBase::RecoverStaminaTimer()
 {
-	if (CurrentStamina <= MaxStamina)
+	if (CurrentStamina < MaxStamina)
 	{
 		CurrentStamina = FMath::Clamp(CurrentStamina + StaminaDepletionAmount, 0.0f, MaxStamina);
 	}
