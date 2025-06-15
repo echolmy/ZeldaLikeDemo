@@ -6,6 +6,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "UI/MyLayout.h"
 #include "Debug/DebugHelper.h"
 
 // Sets default values
@@ -28,7 +29,7 @@ AMyCharacterBase::AMyCharacterBase()
 	FollowCamera->SetupAttachment(CameraBoom);
 	FollowCamera->bUsePawnControlRotation = false;
 
-	// Set player rotate toward the direction according to inputs
+	// Set player rotates toward the direction according to inputs
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 
 	GetCharacterMovement()->MaxWalkSpeed = 500.0f;
@@ -51,6 +52,18 @@ void AMyCharacterBase::BeginPlay()
 
 	// Initialize Stamina
 	CurrentStamina = MaxStamina;
+
+	// Create stamina UI
+	if (LayoutClassRef)
+	{
+		LayoutRef = CreateWidget<UMyLayout>(GetWorld(), LayoutClassRef);
+		if (LayoutRef)
+		{
+			// Trigger ConstructDeferred event
+			LayoutRef->ConstructDeferred(this);
+			LayoutRef->AddToViewport();
+		}
+	}
 }
 
 // Called every frame
@@ -58,8 +71,8 @@ void AMyCharacterBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	FString FloatString = FString::SanitizeFloat(CurrentStamina);
-	Debug::PrintInfo(FloatString);
+	// FString FloatString = FString::SanitizeFloat(CurrentStamina);
+	// Debug::PrintInfo(FloatString);
 }
 
 // Called to bind functionality to input
@@ -154,7 +167,7 @@ void AMyCharacterBase::LocomotionManager(EMovementTypes NewMovement)
 
 	if (CurrentMovementMode == EMovementTypes::MM_GLIDING)
 	{
-		// Show glider model
+		// Show the glider model
 	}
 
 	switch (CurrentMovementMode)
@@ -177,7 +190,7 @@ void AMyCharacterBase::LocomotionManager(EMovementTypes NewMovement)
 	}
 }
 
-void AMyCharacterBase::ResetToWalk()
+void AMyCharacterBase::ResetToWalk() const
 {
 	// Reset to ground status
 	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
@@ -206,6 +219,11 @@ void AMyCharacterBase::SetWalking()
 	// Recover energy
 	StartRecoverStamina();
 }
+
+bool AMyCharacterBase::IsCharacterExhausted() const
+{
+	return CurrentMovementMode == EMovementTypes::MM_EXHAUSTED;
+}
 #pragma endregion Locomotion
 
 #pragma region Stamina
@@ -230,6 +248,11 @@ void AMyCharacterBase::StartDrainStamina()
 	                                StaminaDepletionRate, true);
 
 	// Show UI
+	if (LayoutRef)
+	{
+		// Trigger ShowGaugeAnim event
+		LayoutRef->ShowGaugeAnim(true);
+	}
 }
 
 void AMyCharacterBase::RecoverStaminaTimer()
@@ -242,7 +265,13 @@ void AMyCharacterBase::RecoverStaminaTimer()
 	{
 		ClearDrainRecoverStaminaTimer();
 		LocomotionManager(EMovementTypes::MM_WALKING);
+		
 		// Hide UI
+		if (LayoutRef)
+		{
+			// Trigger ShowGaugeAnim event
+			LayoutRef->ShowGaugeAnim(false);
+		}
 	}
 }
 

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "InputActionValue.h"
+
 #include "GameFramework/Character.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -11,7 +12,12 @@
 
 class UInputAction;
 class UInputMappingContext;
+class UMyLayout;
 
+/**
+ * Enumeration defining different movement types for the character.
+ * Used to control character locomotion states and related behaviors.
+ */
 UENUM(BlueprintType)
 enum class EMovementTypes : uint8
 {
@@ -20,104 +26,223 @@ enum class EMovementTypes : uint8
 	MM_EXHAUSTED UMETA(DisplayName = "Exhausted"), // exhausted, cannot run, sprint and glide
 	MM_SPRINTING UMETA(DisplayName = "Sprinting"), // sprinting
 	MM_GLIDING UMETA(DisplayName = "GLiding"), // gliding
-	MM_FALLING UMETA(DisplayName = "Falling"), // falling, cannot run and sprint
+	MM_FALLING UMETA(DisplayName = "Falling"), // falling cannot run and sprint
 };
 
+/**
+ * Base character class that implements movement, camera control, and stamina systems.
+ * Provides functionality for walking, sprinting, and handling exhaustion states.
+ * Integrates with an Enhanced Input system for modern input handling.
+ */
 UCLASS()
 class ZELDALIKEDEMO_API AMyCharacterBase : public ACharacter
 {
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this character's properties
+	/**
+	 * Constructor for AMyCharacterBase.
+	 * Sets default values for this character's properties including movement, camera setup, and rotation settings.
+	 */
 	AMyCharacterBase();
 
+	/** Spring arm component that positions the camera behind the character */
 	UPROPERTY(EditAnywhere, Category = "Comps")
 	TObjectPtr<USpringArmComponent> CameraBoom;
 
+	/** Camera component that provides the player's view */
 	UPROPERTY(EditAnywhere, Category="Comps")
 	TObjectPtr<UCameraComponent> FollowCamera;
 
+	/** Input mapping context for the character's input actions */
 	UPROPERTY(EditAnywhere, Category="Inputs")
 	TObjectPtr<UInputMappingContext> MappingContext;
 
+	/** Input action for character movement */
 	UPROPERTY(EditAnywhere, Category="Inputs")
 	TObjectPtr<UInputAction> MoveAction;
 
+	/** Input action for camera control */
 	UPROPERTY(EditAnywhere, Category="Inputs")
 	TObjectPtr<UInputAction> LookAction;
 
+	/** Input action for sprint control */
 	UPROPERTY(EditAnywhere, Category="Inputs")
 	TObjectPtr<UInputAction> SprintAction;
 
+	/** Current movement type/state of the character */
 	UPROPERTY(EditAnywhere, Category="Movement")
 	EMovementTypes CurrentMovementMode{EMovementTypes::MM_MAX};
 
-	// Input value
+	/** Horizontal movement input value */
 	float Velocity_X;
+	
+	/** Vertical movement input value */
 	float Velocity_Y;
 
+	/** Class reference for the UI layout widget */
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> LayoutClassRef;
+
+	/** Instance of the UI layout widget */
+	UPROPERTY()
+	UMyLayout* LayoutRef;
+
 protected:
-	// Called when the game starts or when spawned
+	/**
+	 * Called when the game starts or when spawned.
+	 * Initializes input subsystems, stamina, and UI elements.
+	 */
 	virtual void BeginPlay() override;
 
 #pragma region Inputs Node
+	/**
+	 * Handles continuous movement input.
+	 * @param val - The input action value containing movement direction data
+	 */
 	UFUNCTION()
 	void Move_Triggered(const FInputActionValue& val);
 
+	/**
+	 * Handles movement input completion.
+	 * Resets velocity values when movement input stops.
+	 * @param val - The input action value
+	 */
 	UFUNCTION()
 	void Move_Completed(const FInputActionValue& val);
 
+	/**
+	 * Handles camera look input.
+	 * @param val - The input action value containing look direction data
+	 */
 	UFUNCTION()
 	void Look_Triggered(const FInputActionValue& val);
 
+	/**
+	 * Handles continuous sprint input.
+	 * Manages sprint cancellation when velocity is zero.
+	 * @param val - The input action value
+	 */
 	UFUNCTION()
 	void Sprint_Triggered(const FInputActionValue& val);
 
+	/**
+	 * Handles sprint input start.
+	 * Initiates sprinting movement mode.
+	 * @param val - The input action value
+	 */
 	UFUNCTION()
 	void Sprint_Started(const FInputActionValue& val);
 
+	/**
+	 * Handles sprint input completion.
+	 * Returns to walking movement mode.
+	 * @param val - The input action value
+	 */
 	UFUNCTION()
 	void Sprint_Completed(const FInputActionValue& val);
 
 #pragma endregion Inputs Node
 
 public:
-	// Called every frame
+	/**
+	 * Called every frame.
+	 * @param DeltaTime - The time elapsed since the last frame
+	 */
 	virtual void Tick(float DeltaTime) override;
 
-	// Called to bind functionality to input
+	/**
+	 * Called to bind functionality to input.
+	 * Sets up Enhanced Input actions for movement, camera control, and sprinting.
+	 * @param PlayerInputComponent - The input component to bind to
+	 */
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	/**
+	 * Manages transitions between different movement types.
+	 * Controls character behavior based on the new movement state.
+	 * @param NewMovement - The movement type to transition to
+	 */
 	UFUNCTION()
 	void LocomotionManager(EMovementTypes NewMovement);
 
-	void ResetToWalk();
+	/**
+	 * Resets character to walking movement mode.
+	 * Restores ground-based movement parameters.
+	 */
+	void ResetToWalk() const;
+	
+	/**
+	 * Configures character for sprinting movement.
+	 * Increases speed and begins stamina depletion.
+	 */
 	void SetSprint();
+	
+	/**
+	 * Configures character for walking movement.
+	 * Sets normal speed and begins stamina recovery.
+	 */
 	void SetWalking();
+
+	/**
+	 * Checks if the character is in an exhausted state.
+	 * @return true if the character is exhausted, false otherwise
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool IsCharacterExhausted() const;
 
 #pragma region Stamina
 
-	UPROPERTY(EditAnywhere, Category="Stamina")
+	/** Current stamina value */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Stamina")
 	float CurrentStamina = 0.0f;
 
-	UPROPERTY(EditAnywhere, Category="Stamina")
+	/** Maximum possible stamina value */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Stamina")
 	float MaxStamina = 100.0f;
 
+	/** How frequently stamina updates (in seconds) */
 	UPROPERTY(EditAnywhere, Category="Stamina")
 	float StaminaDepletionRate = 0.05f;
 
+	/** Amount of stamina depleted/recovered per update */
 	UPROPERTY(EditAnywhere, Category="Stamina")
 	float StaminaDepletionAmount = 0.5f;
 
+	/** Timer handle for stamina depletion */
 	FTimerHandle DrainStaminaTimerHandle;
+	
+	/**
+	 * Periodically reduces stamina during sprinting.
+	 * Transitions to exhausted state when stamina is depleted.
+	 */
 	void DrainStaminaTimer();
+	
+	/**
+	 * Begins the stamina depletion process.
+	 * Sets up the timer for regular stamina reduction and shows UI gauge.
+	 */
 	void StartDrainStamina();
 
+	/** Timer handle for stamina recovery */
 	FTimerHandle RecoverStaminaTimerHandle;
+	
+	/**
+	 * Periodically increases stamina during walking.
+	 * Hides stamina UI when fully recovered.
+	 */
 	void RecoverStaminaTimer();
+	
+	/**
+	 * Begins the stamina recovery process.
+	 * Sets up timer for regular stamina increase.
+	 */
 	void StartRecoverStamina();
 
+	/**
+	 * Clears all stamina-related timers.
+	 * Used when transitioning between movement states.
+	 */
 	void ClearDrainRecoverStaminaTimer();
 
 #pragma endregion Stamina
