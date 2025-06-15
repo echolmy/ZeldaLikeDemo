@@ -70,9 +70,29 @@ public:
 	UPROPERTY(EditAnywhere, Category="Inputs")
 	TObjectPtr<UInputAction> SprintAction;
 
+	UPROPERTY(EditAnywhere, Category="Inputs")
+	TObjectPtr<UInputAction> JumpGlideAction;
+
 	/** Current movement type/state of the character */
 	UPROPERTY(EditAnywhere, Category="Movement")
-	EMovementTypes CurrentMovementMode{EMovementTypes::MM_MAX};
+	EMovementTypes CurrentMT{EMovementTypes::MM_MAX};
+
+	UPROPERTY(EditDefaultsOnly, Category = "Movement")
+	FVector EnableGlideDistance{0.0f, 0.0f, 150.0f};
+
+	UPROPERTY(visibleanywhere, Category = "Runes")
+	bool bReadyToThrow = false;
+
+	UPROPERTY()
+	EMovementTypes PreviousMT;
+
+	/** Class reference for the UI layout widget */
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> LayoutClassRef;
+
+	/** Instance of the UI layout widget */
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	UMyLayout* LayoutRef;
 
 	/** Horizontal movement input value */
 	float Velocity_X;
@@ -80,20 +100,14 @@ public:
 	/** Vertical movement input value */
 	float Velocity_Y;
 
-	/** Class reference for the UI layout widget */
-	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<UUserWidget> LayoutClassRef;
-
-	/** Instance of the UI layout widget */
-	UPROPERTY()
-	UMyLayout* LayoutRef;
-
 protected:
 	/**
 	 * Called when the game starts or when spawned.
 	 * Initializes input subsystems, stamina, and UI elements.
 	 */
 	virtual void BeginPlay() override;
+
+	virtual void Landed(const FHitResult& Hit) override;
 
 #pragma region Inputs Node
 	/**
@@ -142,6 +156,12 @@ protected:
 	UFUNCTION()
 	void Sprint_Completed(const FInputActionValue& val);
 
+	UFUNCTION()
+	void JumpGlide_Started(const FInputActionValue& val);
+
+	UFUNCTION()
+	void JumpGlide_Completed(const FInputActionValue& val);
+
 #pragma endregion Inputs Node
 
 public:
@@ -170,7 +190,7 @@ public:
 	 * Resets character to walking movement mode.
 	 * Restores ground-based movement parameters.
 	 */
-	void ResetToWalk() const;
+	void ResetToWalk();
 
 	/**
 	 * Configures character for sprinting movement.
@@ -184,15 +204,10 @@ public:
 	 */
 	void SetWalking();
 
-	/**
-	 * Checks if the character is in an exhausted state.
-	 * @return true if the character is exhausted, false otherwise
-	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure)
-	bool IsCharacterExhausted() const;
+	void SetGliding();
+
 
 #pragma region Stamina
-
 	/** Current stamina value */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Stamina")
 	float CurrentStamina = 0.0f;
@@ -211,6 +226,13 @@ public:
 
 	/** Timer handle for stamina depletion */
 	FTimerHandle DrainStaminaTimerHandle;
+
+	/**
+	* Checks if the character is in an exhausted state.
+	* @return true if the character is exhausted, false otherwise
+	*/
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool IsCharacterExhausted() const;
 
 	void SetExhausted();
 
@@ -246,6 +268,10 @@ public:
 	 * Used when transitioning between movement states.
 	 */
 	void ClearDrainRecoverStaminaTimer();
+
+	FTimerHandle AddGravityForFlyingTimerHandle;
+
+	void AddGravityForFlying();
 
 #pragma endregion Stamina
 };

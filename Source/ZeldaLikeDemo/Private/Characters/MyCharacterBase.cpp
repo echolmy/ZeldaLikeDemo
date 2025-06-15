@@ -8,6 +8,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "UI/MyLayout.h"
 #include "Debug/DebugHelper.h"
+#include "DrawDebugHelpers.h"
 
 // Sets default values
 AMyCharacterBase::AMyCharacterBase()
@@ -66,13 +67,40 @@ void AMyCharacterBase::BeginPlay()
 	}
 }
 
+void AMyCharacterBase::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+
+	if (CurrentMT == EMovementTypes::MM_EXHAUSTED)
+	{
+		StartRecoverStamina();
+		return;
+	}
+
+	if (CurrentMT == EMovementTypes::MM_GLIDING)
+	{
+		// If on the fly, switch to walking
+		LocomotionManager(EMovementTypes::MM_WALKING);
+		return;
+	}
+
+	// Check previous status
+	if (PreviousMT == EMovementTypes::MM_SPRINTING)
+	{
+		// Keep sprinting if the previous status is sprinting
+		LocomotionManager(EMovementTypes::MM_SPRINTING);
+	}
+	else
+	{
+		LocomotionManager(EMovementTypes::MM_WALKING);
+	}
+}
+
 // Called every frame
 void AMyCharacterBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	// FString FloatString = FString::SanitizeFloat(CurrentStamina);
-	// Debug::PrintInfo(FloatString);
+	
 }
 
 // Called to bind functionality to input
@@ -90,6 +118,9 @@ void AMyCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EIComp->BindAction(SprintAction, ETriggerEvent::Triggered, this, &AMyCharacterBase::Sprint_Triggered);
 		EIComp->BindAction(SprintAction, ETriggerEvent::Started, this, &AMyCharacterBase::Sprint_Started);
 		EIComp->BindAction(SprintAction, ETriggerEvent::Completed, this, &AMyCharacterBase::Sprint_Completed);
+
+		EIComp->BindAction(JumpGlideAction, ETriggerEvent::Completed, this, &AMyCharacterBase::JumpGlide_Completed);
+		EIComp->BindAction(JumpGlideAction, ETriggerEvent::Started, this, &AMyCharacterBase::JumpGlide_Started);
 	}
 }
 
@@ -133,7 +164,7 @@ void AMyCharacterBase::Look_Triggered(const FInputActionValue& val)
 void AMyCharacterBase::Sprint_Triggered(const FInputActionValue& val)
 {
 	// If velocity equals to 0 (inputs = 0), cancel sprinting (energy is exhausted)
-	if (Velocity_X == 0 && Velocity_Y == 0 && CurrentMovementMode == EMovementTypes::MM_SPRINTING)
+	if (Velocity_X == 0 && Velocity_Y == 0 && CurrentMT == EMovementTypes::MM_SPRINTING)
 	{
 		LocomotionManager(EMovementTypes::MM_WALKING);
 	}
@@ -141,7 +172,7 @@ void AMyCharacterBase::Sprint_Triggered(const FInputActionValue& val)
 
 void AMyCharacterBase::Sprint_Started(const FInputActionValue& val)
 {
-	if (CurrentMovementMode == EMovementTypes::MM_WALKING || CurrentMovementMode == EMovementTypes::MM_MAX)
+	if (CurrentMT == EMovementTypes::MM_WALKING || CurrentMT == EMovementTypes::MM_MAX)
 	{
 		LocomotionManager(EMovementTypes::MM_SPRINTING);
 	}
@@ -149,28 +180,78 @@ void AMyCharacterBase::Sprint_Started(const FInputActionValue& val)
 
 void AMyCharacterBase::Sprint_Completed(const FInputActionValue& val)
 {
-	if (CurrentMovementMode == EMovementTypes::MM_SPRINTING)
+	if (CurrentMT == EMovementTypes::MM_SPRINTING)
 	{
 		LocomotionManager(EMovementTypes::MM_WALKING);
 	}
+}
+
+void AMyCharacterBase::JumpGlide_Started(const FInputActionValue& val)
+{
+	if(CurrentMT == EMovementTypes::MM_EXHAUSTED) return;
+	if (GetCharacterMovement()->MovementMode != MOVE_Falling)
+	{
+		// Save previous status
+		PreviousMT = CurrentMT;
+		// Can jump
+		Jump();
+		LocomotionManager(EMovementTypes::MM_FALLING);
+	}
+
+	if (CurrentMT == EMovementTypes::MM_GLIDING)
+	{
+		// If while gliding, cancel gliding and change to falling
+		Debug::PrintInfo("CancelGliding");
+		LocomotionManager(EMovementTypes::MM_FALLING);
+	}
+
+	// Check the distance between the ground and the player, cannot glide if too close to the ground
+	FHitResult HitResult;
+	const FVector Start = GetActorLocation();
+	const FVector End = Start - EnableGlideDistance;
+	// Ignore the player itself
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	bool HitAnything = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, Params);
+
+	DrawDebugLine(GetWorld(), Start, End, FColor::Green, false, 5.0f, 0.0f, 3.0f);
+
+	if (HitAnything)
+	{
+		// If hit something, cannot glide
+		Debug::PrintInfo("HitSomething");
+	}
+	else
+	{
+		Debug::PrintInfo("Not HitSomething");
+		// If not hit anything, can glide
+		// TODO: 取消激活释放技能
+
+		// Switch to glide
+		LocomotionManager(EMovementTypes::MM_GLIDING);
+	}
+}
+
+void AMyCharacterBase::JumpGlide_Completed(const FInputActionValue& val)
+{
+	StopJumping();
 }
 
 
 void AMyCharacterBase::LocomotionManager(EMovementTypes NewMovement)
 {
 	// Control movement
-	if (NewMovement == CurrentMovementMode)
-	{
-		return;
-	}
-	CurrentMovementMode = NewMovement;
+	if (NewMovement == CurrentMT) return;
 
-	if (CurrentMovementMode == EMovementTypes::MM_GLIDING)
+	CurrentMT = NewMovement;
+
+	if (CurrentMT == EMovementTypes::MM_GLIDING)
 	{
 		// Show the glider model
 	}
 
-	switch (CurrentMovementMode)
+	switch (CurrentMT)
 	{
 	case EMovementTypes::MM_MAX:
 		break;
@@ -184,14 +265,17 @@ void AMyCharacterBase::LocomotionManager(EMovementTypes NewMovement)
 		SetSprint();
 		break;
 	case EMovementTypes::MM_GLIDING:
+		SetGliding();
 		break;
 	case EMovementTypes::MM_FALLING:
 		break;
 	}
 }
 
-void AMyCharacterBase::ResetToWalk() const
+void AMyCharacterBase::ResetToWalk()
 {
+	// If gravity added, cancel it
+	GetWorldTimerManager().ClearTimer(AddGravityForFlyingTimerHandle);
 	// Reset to ground status
 	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 }
@@ -218,9 +302,25 @@ void AMyCharacterBase::SetWalking()
 	StartRecoverStamina();
 }
 
+void AMyCharacterBase::SetGliding()
+{
+	GetCharacterMovement()->AirControl = 0.6f;
+
+	// Set flying mode 
+	GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+
+	StartDrainStamina();
+
+	// Set gravity simulation, execute each frame
+	AddGravityForFlying();
+
+	GetWorldTimerManager().SetTimer(AddGravityForFlyingTimerHandle, this, &AMyCharacterBase::AddGravityForFlying,
+	                                GetWorld()->GetDeltaSeconds(), true);
+}
+
 bool AMyCharacterBase::IsCharacterExhausted() const
 {
-	return CurrentMovementMode == EMovementTypes::MM_EXHAUSTED;
+	return CurrentMT == EMovementTypes::MM_EXHAUSTED;
 }
 #pragma endregion Locomotion
 
@@ -233,12 +333,12 @@ void AMyCharacterBase::SetExhausted()
 	ClearDrainRecoverStaminaTimer();
 
 	// Recover energy when on the ground
-	if (GetCharacterMovement()->MovementMode==MOVE_Walking)
+	if (GetCharacterMovement()->MovementMode == MOVE_Walking)
 	{
 		StartRecoverStamina();
 	}
 	// If falling, start recovering energy until landing 
-	else if (GetCharacterMovement()->MovementMode==MOVE_Falling)
+	else if (GetCharacterMovement()->MovementMode == MOVE_Falling)
 	{
 		ResetToWalk();
 	}
@@ -282,7 +382,7 @@ void AMyCharacterBase::RecoverStaminaTimer()
 	{
 		ClearDrainRecoverStaminaTimer();
 		LocomotionManager(EMovementTypes::MM_WALKING);
-		
+
 		// Hide UI
 		if (LayoutRef)
 		{
@@ -305,5 +405,10 @@ void AMyCharacterBase::ClearDrainRecoverStaminaTimer()
 {
 	GetWorldTimerManager().ClearTimer(DrainStaminaTimerHandle);
 	GetWorldTimerManager().ClearTimer(RecoverStaminaTimerHandle);
+}
+
+void AMyCharacterBase::AddGravityForFlying()
+{
+	LaunchCharacter(FVector(0.0f, 0.0f, -100.0f), false, true);
 }
 #pragma endregion Stamina
