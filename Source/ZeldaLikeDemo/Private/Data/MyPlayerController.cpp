@@ -2,3 +2,9 @@
 
 
 #include "ZeldaLikeDemo/Public/Data/MyPlayerController.h"
+
+void AMyPlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+	SetInputMode(FInputModeGameOnly());
+}
