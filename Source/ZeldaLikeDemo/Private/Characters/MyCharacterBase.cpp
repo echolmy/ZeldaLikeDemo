@@ -48,6 +48,36 @@ void AMyCharacterBase::BeginPlay()
 	if (!Subsystem) return;
 
 	Subsystem->AddMappingContext(MappingContext, 0);
+
+	// Initialize Stamina
+	CurrentStamina = MaxStamina;
+}
+
+// Called every frame
+void AMyCharacterBase::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	FString FloatString = FString::SanitizeFloat(CurrentStamina);
+	Debug::PrintInfo(FloatString);
+}
+
+// Called to bind functionality to input
+void AMyCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+	if (UEnhancedInputComponent* EIComp = Cast<UEnhancedInputComponent>(PlayerInputComponent))
+	{
+		EIComp->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacterBase::Move_Triggered);
+		EIComp->BindAction(MoveAction, ETriggerEvent::Completed, this, &AMyCharacterBase::Move_Completed);
+
+		EIComp->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacterBase::Look_Triggered);
+
+		EIComp->BindAction(SprintAction, ETriggerEvent::Triggered, this, &AMyCharacterBase::Sprint_Triggered);
+		EIComp->BindAction(SprintAction, ETriggerEvent::Started, this, &AMyCharacterBase::Sprint_Started);
+		EIComp->BindAction(SprintAction, ETriggerEvent::Completed, this, &AMyCharacterBase::Sprint_Completed);
+	}
 }
 
 #pragma region Move & Camera
@@ -86,6 +116,7 @@ void AMyCharacterBase::Look_Triggered(const FInputActionValue& val)
 }
 #pragma endregion Move & Camera
 
+#pragma region Locomotion
 void AMyCharacterBase::Sprint_Triggered(const FInputActionValue& val)
 {
 	// If velocity equals to 0 (inputs = 0), cancel sprinting (energy is exhausted)
@@ -111,30 +142,6 @@ void AMyCharacterBase::Sprint_Completed(const FInputActionValue& val)
 	}
 }
 
-
-// Called every frame
-void AMyCharacterBase::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-}
-
-// Called to bind functionality to input
-void AMyCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-	if (UEnhancedInputComponent* EIComp = Cast<UEnhancedInputComponent>(PlayerInputComponent))
-	{
-		EIComp->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacterBase::Move_Triggered);
-		EIComp->BindAction(MoveAction, ETriggerEvent::Completed, this, &AMyCharacterBase::Move_Completed);
-
-		EIComp->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacterBase::Look_Triggered);
-
-		EIComp->BindAction(SprintAction, ETriggerEvent::Triggered, this, &AMyCharacterBase::Sprint_Triggered);
-		EIComp->BindAction(SprintAction, ETriggerEvent::Started, this, &AMyCharacterBase::Sprint_Started);
-		EIComp->BindAction(SprintAction, ETriggerEvent::Completed, this, &AMyCharacterBase::Sprint_Completed);
-	}
-}
 
 void AMyCharacterBase::LocomotionManager(EMovementTypes NewMovement)
 {
@@ -185,6 +192,7 @@ void AMyCharacterBase::SetSprint()
 	ResetToWalk();
 
 	// Consumer energy
+	StartDrainStamina();
 }
 
 void AMyCharacterBase::SetWalking()
@@ -196,4 +204,60 @@ void AMyCharacterBase::SetWalking()
 	ResetToWalk();
 
 	// Recover energy
+	StartRecoverStamina();
 }
+#pragma endregion Locomotion
+
+#pragma region Stamina
+void AMyCharacterBase::DrainStaminaTimer()
+{
+	if (CurrentStamina <= 0.0f)
+	{
+		LocomotionManager(EMovementTypes::MM_EXHAUSTED);
+	}
+	else
+	{
+		CurrentStamina = FMath::Clamp(CurrentStamina - StaminaDepletionAmount, 0.0f, MaxStamina);
+	}
+}
+
+void AMyCharacterBase::StartDrainStamina()
+{
+	// Clear existed Timer
+	ClearDrainRecoverStaminaTimer();
+
+	GetWorldTimerManager().SetTimer(DrainStaminaTimerHandle, this, &AMyCharacterBase::DrainStaminaTimer,
+	                                StaminaDepletionRate, true);
+
+	// Show UI
+}
+
+void AMyCharacterBase::RecoverStaminaTimer()
+{
+	if (CurrentStamina <= MaxStamina)
+	{
+		CurrentStamina = FMath::Clamp(CurrentStamina + StaminaDepletionAmount, 0.0f, MaxStamina);
+	}
+	else
+	{
+		ClearDrainRecoverStaminaTimer();
+		LocomotionManager(EMovementTypes::MM_WALKING);
+		// Hide UI
+	}
+}
+
+void AMyCharacterBase::StartRecoverStamina()
+{
+	// Clear existed Timer
+	ClearDrainRecoverStaminaTimer();
+
+	GetWorldTimerManager().SetTimer(RecoverStaminaTimerHandle, this, &AMyCharacterBase::RecoverStaminaTimer,
+	                                StaminaDepletionRate, true);
+}
+
+void AMyCharacterBase::ClearDrainRecoverStaminaTimer()
+{
+	GetWorldTimerManager().ClearTimer(DrainStaminaTimerHandle);
+	GetWorldTimerManager().ClearTimer(RecoverStaminaTimerHandle);
+}
+#pragma endregion Stamina

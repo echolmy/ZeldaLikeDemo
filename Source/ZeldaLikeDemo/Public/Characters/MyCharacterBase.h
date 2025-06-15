@@ -93,8 +93,32 @@ public:
 	void LocomotionManager(EMovementTypes NewMovement);
 
 	void ResetToWalk();
-	
 	void SetSprint();
-
 	void SetWalking();
+
+#pragma region Stamina
+
+	UPROPERTY(EditAnywhere, Category="Stamina")
+	float CurrentStamina = 0.0f;
+
+	UPROPERTY(EditAnywhere, Category="Stamina")
+	float MaxStamina = 100.0f;
+
+	UPROPERTY(EditAnywhere, Category="Stamina")
+	float StaminaDepletionRate = 0.05f;
+
+	UPROPERTY(EditAnywhere, Category="Stamina")
+	float StaminaDepletionAmount = 0.5f;
+
+	FTimerHandle DrainStaminaTimerHandle;
+	void DrainStaminaTimer();
+	void StartDrainStamina();
+
+	FTimerHandle RecoverStaminaTimerHandle;
+	void RecoverStaminaTimer();
+	void StartRecoverStamina();
+
+	void ClearDrainRecoverStaminaTimer();
+
+#pragma endregion Stamina
 };
