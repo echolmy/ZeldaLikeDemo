@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "InputActionValue.h"
-
 #include "GameFramework/Character.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -53,6 +52,9 @@ public:
 	/** Camera component that provides the player's view */
 	UPROPERTY(EditAnywhere, Category="Comps")
 	TObjectPtr<UCameraComponent> FollowCamera;
+
+	UPROPERTY(EditAnywhere, Category="Comps")
+	TObjectPtr<USkeletalMeshComponent> Parachute;
 
 	/** Input mapping context for the character's input actions */
 	UPROPERTY(EditAnywhere, Category="Inputs")
@@ -132,6 +134,9 @@ protected:
 	UFUNCTION()
 	void Look_Triggered(const FInputActionValue& val);
 
+#pragma endregion Inputs Node
+
+#pragma region Sprint
 	/**
 	 * Handles continuous sprint input.
 	 * Manages sprint cancellation when velocity is zero.
@@ -155,15 +160,16 @@ protected:
 	 */
 	UFUNCTION()
 	void Sprint_Completed(const FInputActionValue& val);
+#pragma endregion Sprint
 
+#pragma region Jump & Glide
 	UFUNCTION()
 	void JumpGlide_Started(const FInputActionValue& val);
 
 	UFUNCTION()
 	void JumpGlide_Completed(const FInputActionValue& val);
-
-#pragma endregion Inputs Node
-
+#pragma endregion Jump & Glide
+	
 public:
 	/**
 	 * Called every frame.
@@ -177,7 +183,7 @@ public:
 	 * @param PlayerInputComponent - The input component to bind to
 	 */
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
+	
 	/**
 	 * Manages transitions between different movement types.
 	 * Controls character behavior based on the new movement state.
@@ -205,6 +211,8 @@ public:
 	void SetWalking();
 
 	void SetGliding();
+
+	void SetFalling();
 
 
 #pragma region Stamina

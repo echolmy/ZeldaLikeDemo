@@ -30,6 +30,10 @@ AMyCharacterBase::AMyCharacterBase()
 	FollowCamera->SetupAttachment(CameraBoom);
 	FollowCamera->bUsePawnControlRotation = false;
 
+	Parachute = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Parachute"));
+	Parachute->SetupAttachment(GetMesh());
+	Parachute->SetVisibility(false);
+
 	// Set player rotates toward the direction according to inputs
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 
@@ -100,7 +104,6 @@ void AMyCharacterBase::Landed(const FHitResult& Hit)
 void AMyCharacterBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
 }
 
 // Called to bind functionality to input
@@ -188,7 +191,7 @@ void AMyCharacterBase::Sprint_Completed(const FInputActionValue& val)
 
 void AMyCharacterBase::JumpGlide_Started(const FInputActionValue& val)
 {
-	if(CurrentMT == EMovementTypes::MM_EXHAUSTED) return;
+	if (CurrentMT == EMovementTypes::MM_EXHAUSTED) return;
 	if (GetCharacterMovement()->MovementMode != MOVE_Falling)
 	{
 		// Save previous status
@@ -196,13 +199,14 @@ void AMyCharacterBase::JumpGlide_Started(const FInputActionValue& val)
 		// Can jump
 		Jump();
 		LocomotionManager(EMovementTypes::MM_FALLING);
+		return;
 	}
 
 	if (CurrentMT == EMovementTypes::MM_GLIDING)
 	{
 		// If while gliding, cancel gliding and change to falling
-		Debug::PrintInfo("CancelGliding");
 		LocomotionManager(EMovementTypes::MM_FALLING);
+		return;
 	}
 
 	// Check the distance between the ground and the player, cannot glide if too close to the ground
@@ -238,7 +242,7 @@ void AMyCharacterBase::JumpGlide_Completed(const FInputActionValue& val)
 	StopJumping();
 }
 
-
+#pragma region Locomotions
 void AMyCharacterBase::LocomotionManager(EMovementTypes NewMovement)
 {
 	// Control movement
@@ -246,9 +250,10 @@ void AMyCharacterBase::LocomotionManager(EMovementTypes NewMovement)
 
 	CurrentMT = NewMovement;
 
-	if (CurrentMT == EMovementTypes::MM_GLIDING)
+	// Show or hide the glider model
+	if (Parachute)
 	{
-		// Show the glider model
+		Parachute->SetVisibility(CurrentMT == EMovementTypes::MM_GLIDING);
 	}
 
 	switch (CurrentMT)
@@ -268,9 +273,12 @@ void AMyCharacterBase::LocomotionManager(EMovementTypes NewMovement)
 		SetGliding();
 		break;
 	case EMovementTypes::MM_FALLING:
+		SetFalling();
 		break;
 	}
 }
+
+#pragma endregion Locomotions
 
 void AMyCharacterBase::ResetToWalk()
 {
@@ -316,6 +324,15 @@ void AMyCharacterBase::SetGliding()
 
 	GetWorldTimerManager().SetTimer(AddGravityForFlyingTimerHandle, this, &AMyCharacterBase::AddGravityForFlying,
 	                                GetWorld()->GetDeltaSeconds(), true);
+}
+
+void AMyCharacterBase::SetFalling()
+{
+	// do not recover energy when falling, avoid gliding infinitely
+	GetCharacterMovement()->AirControl = 0.35f;
+
+	ResetToWalk();
+	ClearDrainRecoverStaminaTimer();
 }
 
 bool AMyCharacterBase::IsCharacterExhausted() const
