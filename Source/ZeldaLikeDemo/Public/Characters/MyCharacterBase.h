@@ -28,6 +28,17 @@ enum class EMovementTypes : uint8
 	MM_FALLING UMETA(DisplayName = "Falling"), // falling cannot run and sprint
 };
 
+UENUM(BlueprintType)
+enum class ERunes : uint8
+{
+	R_EMAX UMETA(DisplayName = "EMax"), // Default
+	R_RBS UMETA(DisplayName = "RBS"), // Remote bomb sphere
+	R_RBB UMETA(DisplayName = "RBB"), // Remote bomb box
+	R_MAG UMETA(DisplayName = "MAGNET"), // Magnet
+	R_STAT UMETA(DisplayName = "STATICS"), // Time stop
+	R_ICE UMETA(DisplayName = "ICE"), // Generate ice
+};
+
 /**
  * Base character class that implements movement, camera control, and stamina systems.
  * Provides functionality for walking, sprinting, and handling exhaustion states.
@@ -82,9 +93,6 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Movement")
 	FVector EnableGlideDistance{0.0f, 0.0f, 150.0f};
 
-	UPROPERTY(visibleanywhere, Category = "Runes")
-	bool bReadyToThrow = false;
-
 	UPROPERTY()
 	EMovementTypes PreviousMT;
 
@@ -101,6 +109,12 @@ public:
 
 	/** Vertical movement input value */
 	float Velocity_Y;
+
+	UPROPERTY(visibleanywhere, Category = "Runes")
+	bool bReadyToThrow = false;
+
+	UPROPERTY(EditAnywhere, Category = "Runes")
+	ERunes ActiveRune{ERunes::R_EMAX};
 
 protected:
 	/**
