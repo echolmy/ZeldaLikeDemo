@@ -5,7 +5,7 @@
 这是一个基于虚幻引擎5（Unreal Engine 5）开发的"塞尔达传说"风格游戏演示项目。本项目实现了多种游戏机制，包括角色移动系统、滑翔系统、体力管理以及环境交互。
 
 当前开发进度:
-![开发进度](screenshot.gif)
+![开发进度](Source/ZeldaLikeDemo/Public/Images/screenshot.gif)
 ## 主要特性（已实现）
 ### 角色移动系统
 通过状态管理器实现自定义的locomotion，控制:
